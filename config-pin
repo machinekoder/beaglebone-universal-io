@@ -8,7 +8,7 @@ SLOTS=/sys/devices/bone_capemgr.*/slots
 #4.1.x where lots of things changed...
 #use the new location of bone_capemgr for detection..
 if [ -d /sys/devices/platform/bone_capemgr/ ] ; then
-	OCPDIR=/sys/devices/platform/ocp/ocp*
+	OCPDIR=/sys/devices/platform/ocp/ocp:
 	SLOTS=/sys/devices/platform/bone_capemgr/slots
 fi
 
@@ -888,13 +888,19 @@ load_cape () {
 
 # Check whether support for a specific pin is loaded or not
 # $1 pin to check
+# $2 pin mode
 check_pin () {
 	if [ -e $OCPDIR/${PIN}_pinmux.* ] ; then
-		echo_dbg $1 pinmux file found
+		echo_dbg "$1 pinmux file found"
 	elif [ -e $OCPDIR${PIN}_pinmux ] ; then
-		echo_dbg $1 pinmux file found
+		echo_dbg "$1 pinmux file found"
 	else
-		echo_err $1 pinmux file not found!
+		if [ $2 = "default" ] ; then
+			echo_dbg "$1 pinmux file not found!"
+			return 0
+		else
+			echo_err "$1 pinmux file not found!"
+		fi
 
 		CAPE="$(listcape $1)"
 		# use only first overlay
@@ -908,10 +914,11 @@ check_pin () {
                 echo_err "$CAPE overlay not found"
 				echo_err "run \"$(basename $0) overlay $CAPE\" to load the cape"
 			fi
-			exit 1
+			return 1
 		else
-			echo_std $1 overlay not found
+			echo_std "$1 overlay not found"
 			load_cape $CAPE
+			return 0
 		fi
 	fi
 }
@@ -932,7 +939,9 @@ config_pin () {
 		MODES="$(listmodes $PIN)"
 		DIR=""
 
-		check_pin $PIN
+		if [ ! $(check_pin $PIN $2) ] ; then
+			return
+		fi
 
 		case $2 in
 		# Map special GPIO setup modes to gpio with direction set
